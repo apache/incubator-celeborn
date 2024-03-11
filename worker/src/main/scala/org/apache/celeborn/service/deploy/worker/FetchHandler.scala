@@ -139,6 +139,7 @@ class FetchHandler(
           rpcRequest.requestId,
           isLegacy = false,
           openStream.getReadLocalShuffle,
+          openStream.getShuffleDataNeedSort,
           callback)
       case openStreamList: PbOpenStreamList =>
         val shuffleKey = openStreamList.getShuffleKey()
@@ -204,6 +205,7 @@ class FetchHandler(
             isLegacy = true,
             // legacy [[OpenStream]] doesn't support read local shuffle
             readLocalShuffle = false,
+            shuffleNeedSort = true,
             callback)
         case Message.Type.OPEN_STREAM_WITH_CREDIT =>
           val openStreamWithCredit = message.asInstanceOf[OpenStreamWithCredit]
@@ -217,6 +219,7 @@ class FetchHandler(
             rpcRequestId = rpcRequest.requestId,
             isLegacy = true,
             readLocalShuffle = false,
+            shuffleNeedSort = true,
             callback)
         case _ =>
           logError(s"Received an unknown message type id: ${message.`type`.id}")
@@ -234,7 +237,8 @@ class FetchHandler(
       fileName: String,
       startIndex: Int,
       endIndex: Int,
-      readLocalShuffle: Boolean = false): PbStreamHandlerOpt = {
+      readLocalShuffle: Boolean = false,
+      shuffleNeedSort: Boolean = true): PbStreamHandlerOpt = {
     try {
       logDebug(s"Received open stream request $shuffleKey $fileName $startIndex " +
         s"$endIndex get file name $fileName from client channel " +
@@ -246,8 +250,9 @@ class FetchHandler(
       // 1. when the current request is a non-range openStream, but the original unsorted file
       //    has been deleted by another range's openStream request.
       // 2. when the current request is a range openStream request.
-      if ((endIndex != Int.MaxValue) || (endIndex == Int.MaxValue && !fileInfo.addStream(
-          streamId))) {
+      if (shuffleNeedSort && ((endIndex != Int.MaxValue) || (endIndex == Int.MaxValue && !fileInfo
+          .addStream(
+            streamId)))) {
         fileInfo = partitionsSorter.getSortedFileInfo(
           shuffleKey,
           fileName,
@@ -318,6 +323,7 @@ class FetchHandler(
       rpcRequestId: Long,
       isLegacy: Boolean,
       readLocalShuffle: Boolean = false,
+      shuffleNeedSort: Boolean = true,
       callback: RpcResponseCallback): Unit = {
     workerSource.recordAppActiveConnection(client, shuffleKey)
     workerSource.startTimer(WorkerSource.OPEN_STREAM_TIME, shuffleKey)
@@ -332,7 +338,8 @@ class FetchHandler(
               fileName,
               startIndex,
               endIndex,
-              readLocalShuffle)
+              readLocalShuffle,
+              shuffleNeedSort)
 
           if (pbStreamHandlerOpt.getStatus != StatusCode.SUCCESS.getValue) {
             throw new CelebornIOException(pbStreamHandlerOpt.getErrorMsg)

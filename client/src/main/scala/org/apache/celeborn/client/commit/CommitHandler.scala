@@ -30,7 +30,7 @@ import scala.concurrent.duration.Duration
 
 import org.apache.celeborn.client.{ShuffleCommittedInfo, WorkerStatusTracker}
 import org.apache.celeborn.client.CommitManager.CommittedPartitionInfo
-import org.apache.celeborn.client.LifecycleManager.{ShuffleFailedWorkers, ShuffleFileGroups}
+import org.apache.celeborn.client.LifecycleManager.{ShuffleFailedWorkers, ShuffleFileGroups, ShufflePushFailedBatches}
 import org.apache.celeborn.common.CelebornConf
 import org.apache.celeborn.common.internal.Logging
 import org.apache.celeborn.common.meta.{ShufflePartitionLocationInfo, WorkerInfo}
@@ -42,6 +42,7 @@ import org.apache.celeborn.common.util.{CollectionUtils, JavaUtils, ThreadUtils,
 // Can Remove this if celeborn don't support scala211 in future
 import org.apache.celeborn.common.util.FunctionConverter._
 import org.apache.celeborn.common.util.ThreadUtils.awaitResult
+import org.apache.celeborn.common.write.PushFailedBatch
 
 case class CommitFilesParam(
     worker: WorkerInfo,
@@ -73,6 +74,7 @@ abstract class CommitHandler(
   private val totalWritten = new LongAdder
   private val fileCount = new LongAdder
   protected val reducerFileGroupsMap = new ShuffleFileGroups
+  protected val shufflePushFailedBatches = new ShufflePushFailedBatches
 
   val ec = ExecutionContext.fromExecutor(sharedRpcPool)
 
@@ -177,6 +179,7 @@ abstract class CommitHandler(
 
   def removeExpiredShuffle(shuffleId: Int): Unit = {
     reducerFileGroupsMap.remove(shuffleId)
+    shufflePushFailedBatches.remove(shuffleId)
   }
 
   /**
@@ -196,6 +199,7 @@ abstract class CommitHandler(
       attemptId: Int,
       numMappers: Int,
       partitionId: Int,
+      pushFailedBatches: util.Set[PushFailedBatch],
       recordWorkerFailure: ShuffleFailedWorkers => Unit): (Boolean, Boolean)
 
   def registerShuffle(shuffleId: Int, numMappers: Int): Unit = {

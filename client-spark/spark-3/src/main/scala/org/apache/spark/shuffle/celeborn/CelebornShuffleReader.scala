@@ -211,6 +211,7 @@ class CelebornShuffleReader[K, C](
             if (throwsFetchFailure) exceptionMaker else null,
             locations,
             streamHandlers,
+            fileGroups.pushFailedBatchSet,
             fileGroups.mapAttempts,
             metricsCallback)
         } catch {
