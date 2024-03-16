@@ -19,14 +19,12 @@ package org.apache.celeborn.common.util
 
 import java.util
 import java.util.Collections
-import java.util.stream.Collectors
 
 import org.apache.celeborn.CelebornFunSuite
 import org.apache.celeborn.common.CelebornConf
 import org.apache.celeborn.common.protocol.{PartitionLocation, TransportModuleConstants}
 import org.apache.celeborn.common.protocol.message.ControlMessages.{GetReducerFileGroupResponse, MapperEnd}
 import org.apache.celeborn.common.protocol.message.StatusCode
-import org.apache.celeborn.common.write.PushFailedBatch
 
 class UtilsSuite extends CelebornFunSuite {
 

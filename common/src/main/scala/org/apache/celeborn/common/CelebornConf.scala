@@ -26,7 +26,6 @@ import scala.collection.mutable
 import scala.concurrent.duration._
 import scala.util.Try
 
-import org.apache.celeborn.common.CelebornConf.MASTER_INTERNAL_ENDPOINTS
 import org.apache.celeborn.common.identity.{DefaultIdentityProvider, IdentityProvider}
 import org.apache.celeborn.common.internal.Logging
 import org.apache.celeborn.common.internal.config._

@@ -18,8 +18,7 @@
 package org.apache.celeborn.common.protocol.message
 
 import java.util
-import java.util.{Map => JMap, Set => JSet, UUID}
-import java.util.concurrent.ConcurrentHashMap
+import java.util.UUID
 
 import scala.collection.JavaConverters._
 
