@@ -20,6 +20,8 @@ import java.nio.charset.StandardCharsets.UTF_8
 import java.util.Locale
 
 import scala.util.Properties
+import scala.xml._
+import scala.xml.transform._
 
 import sbtassembly.AssemblyPlugin.autoImport._
 import sbtprotoc.ProtocPlugin.autoImport._
@@ -718,9 +720,14 @@ trait SparkClientProjects {
   }
 
   def sparkClientShade: Project = {
-    val p = Project(sparkClientShadedProjectName, file(sparkClientShadedProjectPath))
+    var p = Project(sparkClientShadedProjectName, file(sparkClientShadedProjectPath))
       .dependsOn(sparkClient)
-      .disablePlugins(AddMetaInfLicenseFiles)
+
+    if (includeColumnarShuffle) {
+      p = p.dependsOn(sparkColumnarShuffle)
+    }
+
+    p = p.disablePlugins(AddMetaInfLicenseFiles)
       .settings (
         commonSettings,
         releaseSettings,
@@ -781,13 +788,22 @@ trait SparkClientProjects {
           case _ => MergeStrategy.first
         },
 
-        Compile / packageBin := assembly.value
+        Compile / packageBin := assembly.value,
+        publishMavenStyle := true,
+        pomPostProcess := { (node: xml.Node) =>
+          new RuleTransformer(new RewriteRule {
+            override def transform(n: xml.Node): Seq[xml.Node] = n match {
+              case e: Elem if e.label == "dependencies" =>
+                val filteredDeps = e.child.filterNot { dep =>
+                  (dep \ "groupId").text == "org.apache.celeborn"
+                }
+                e.copy(child = filteredDeps)
+              case _ => n
+            }
+          }).transform(node).head
+        }
       )
-    if (includeColumnarShuffle) {
-        p.dependsOn(sparkColumnarShuffle)
-    } else {
-        p
-    }
+    p
   }
 }
 
