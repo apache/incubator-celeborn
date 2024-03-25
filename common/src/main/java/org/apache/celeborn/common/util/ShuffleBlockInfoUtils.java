@@ -23,6 +23,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.CompositeByteBuf;
+
 public class ShuffleBlockInfoUtils {
 
   public static class ShuffleBlockInfo {
@@ -34,7 +37,8 @@ public class ShuffleBlockInfoUtils {
       int startMapIndex,
       int endMapIndex,
       long fetchChunkSize,
-      Map<Integer, List<ShuffleBlockInfo>> indexMap) {
+      Map<Integer, List<ShuffleBlockInfo>> indexMap,
+      boolean isInMemory) {
     List<Long> sortedChunkOffset = new ArrayList<>();
     ShuffleBlockInfo lastBlock = null;
     int maxMapIndex = endMapIndex;
@@ -43,24 +47,46 @@ public class ShuffleBlockInfoUtils {
       maxMapIndex = indexMap.keySet().stream().max(Integer::compareTo).get() + 1;
     }
 
-    for (int i = startMapIndex; i < maxMapIndex; i++) {
-      List<ShuffleBlockInfo> blockInfos = indexMap.get(i);
-      if (blockInfos != null) {
-        for (ShuffleBlockInfo info : blockInfos) {
-          if (sortedChunkOffset.size() == 0) {
-            sortedChunkOffset.add(info.offset);
+    if (isInMemory) {
+      long currentChunkOffset = 0;
+      long lastChunkOffset = 0;
+      sortedChunkOffset.add(0l);
+      for (int i = startMapIndex; i < maxMapIndex; i++) {
+        List<ShuffleBlockInfo> blockInfos = indexMap.get(i);
+        if (blockInfos != null) {
+          for (ShuffleBlockInfo info : blockInfos) {
+            currentChunkOffset += info.length;
+            if (currentChunkOffset - lastChunkOffset > fetchChunkSize) {
+              lastChunkOffset = currentChunkOffset;
+              sortedChunkOffset.add(currentChunkOffset);
+            }
           }
-          if (info.offset - sortedChunkOffset.get(sortedChunkOffset.size() - 1) >= fetchChunkSize) {
-            sortedChunkOffset.add(info.offset);
-          }
-          lastBlock = info;
         }
       }
-    }
-    if (lastBlock != null) {
-      long endChunkOffset = lastBlock.length + lastBlock.offset;
-      if (!sortedChunkOffset.contains(endChunkOffset)) {
-        sortedChunkOffset.add(endChunkOffset);
+      if (lastChunkOffset != currentChunkOffset) {
+        sortedChunkOffset.add(currentChunkOffset);
+      }
+    } else {
+      for (int i = startMapIndex; i < maxMapIndex; i++) {
+        List<ShuffleBlockInfo> blockInfos = indexMap.get(i);
+        if (blockInfos != null) {
+          for (ShuffleBlockInfo info : blockInfos) {
+            if (sortedChunkOffset.size() == 0) {
+              sortedChunkOffset.add(info.offset);
+            }
+            if (info.offset - sortedChunkOffset.get(sortedChunkOffset.size() - 1)
+                >= fetchChunkSize) {
+              sortedChunkOffset.add(info.offset);
+            }
+            lastBlock = info;
+          }
+        }
+      }
+      if (lastBlock != null) {
+        long endChunkOffset = lastBlock.length + lastBlock.offset;
+        if (!sortedChunkOffset.contains(endChunkOffset)) {
+          sortedChunkOffset.add(endChunkOffset);
+        }
       }
     }
     return sortedChunkOffset;
@@ -89,5 +115,24 @@ public class ShuffleBlockInfoUtils {
       indexMap.put(mapId, blockInfos);
     }
     return indexMap;
+  }
+
+  public static void sortBufferByRange(
+      int startMapIndex,
+      int endMapIndex,
+      Map<Integer, List<ShuffleBlockInfo>> indexMap,
+      CompositeByteBuf sortedByteBuf,
+      CompositeByteBuf targetByteBuf) {
+    for (int i = startMapIndex; i < endMapIndex; i++) {
+      List<ShuffleBlockInfo> blockInfos = indexMap.get(i);
+      if (blockInfos != null) {
+        for (ShuffleBlockInfo blockInfo : blockInfos) {
+          ByteBuf slice = sortedByteBuf.slice((int) blockInfo.offset, (int) blockInfo.length);
+          // Do not retain this buffer because this buffer will be release when the fileinfo is
+          // release
+          targetByteBuf.addComponent(slice);
+        }
+      }
+    }
   }
 }

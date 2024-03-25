@@ -17,17 +17,33 @@
 
 package org.apache.celeborn.common.meta;
 
+import java.util.*;
+
 import io.netty.buffer.CompositeByteBuf;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.apache.celeborn.common.identity.UserIdentifier;
+import org.apache.celeborn.common.util.ShuffleBlockInfoUtils.ShuffleBlockInfo;
 
 public class MemoryFileInfo extends FileInfo {
+  Logger logger = LoggerFactory.getLogger(MemoryFileInfo.class);
   private CompositeByteBuf buffer;
-  private long length;
+  private CompositeByteBuf sortedBuffer;
+  private Map<Integer, List<ShuffleBlockInfo>> sortedIndexes;
 
   public MemoryFileInfo(
       UserIdentifier userIdentifier, boolean partitionSplitEnabled, FileMeta fileMeta) {
     super(userIdentifier, partitionSplitEnabled, fileMeta);
+  }
+
+  public MemoryFileInfo(
+      UserIdentifier userIdentifier,
+      boolean partitionSplitEnabled,
+      FileMeta fileMeta,
+      CompositeByteBuf buffer) {
+    super(userIdentifier, partitionSplitEnabled, fileMeta);
+    this.buffer = buffer;
   }
 
   public CompositeByteBuf getBuffer() {
@@ -39,11 +55,32 @@ public class MemoryFileInfo extends FileInfo {
   }
 
   public void setBufferSize(int bufferSize) {
-    this.length = bufferSize;
+    this.bytesFlushed = bufferSize;
   }
 
-  @Override
-  public long getFileLength() {
-    return length;
+  public CompositeByteBuf getSortedBuffer() {
+    return sortedBuffer;
+  }
+
+  public void setSortedBuffer(CompositeByteBuf sortedBuffer) {
+    this.sortedBuffer = sortedBuffer;
+  }
+
+  public Map<Integer, List<ShuffleBlockInfo>> getSortedIndexes() {
+    return sortedIndexes;
+  }
+
+  public void setSortedIndexes(Map<Integer, List<ShuffleBlockInfo>> sortedIndexes) {
+    this.sortedIndexes = sortedIndexes;
+  }
+
+  public int expireMemoryBuffers() {
+    int bufferSize = 0;
+    if (buffer != null) {
+      bufferSize = buffer.writerIndex();
+      buffer.release();
+    }
+    logger.info("Memory File Info {} expire, removed {}", this, bufferSize);
+    return bufferSize;
   }
 }
