@@ -493,12 +493,11 @@ object PbSerDeUtils {
   }
 
   def toPbPushFailedBatch(pushFailedBatch: PushFailedBatch): PbPushFailedBatch = {
-    val builder = PbPushFailedBatch.newBuilder()
+    PbPushFailedBatch.newBuilder()
       .setMapId(pushFailedBatch.getMapId)
       .setAttemptId(pushFailedBatch.getAttemptId)
       .setBatchId(pushFailedBatch.getBatchId)
-
-    builder.build()
+      .build()
   }
 
   def fromPbPushFailedBatch(pbPushFailedBatch: PbPushFailedBatch): PushFailedBatch = {
@@ -508,4 +507,19 @@ object PbSerDeUtils {
       pbPushFailedBatch.getBatchId)
   }
 
+  def toPbPushFailedBatchSet(failedBatchSet: util.Set[PushFailedBatch]): PbPushFailedBatchSet = {
+    val builder = PbPushFailedBatchSet.newBuilder()
+    failedBatchSet.asScala.foreach(batch => builder.addFailureBatches(toPbPushFailedBatch(batch)))
+
+    builder.build()
+  }
+
+  def fromPbPushFailedBatchSet(pbFailedBatchSet: PbPushFailedBatchSet)
+      : util.Set[PushFailedBatch] = {
+    val failedBatchSet = new util.HashSet[PushFailedBatch]()
+    pbFailedBatchSet.getFailureBatchesList.asScala.foreach(batch =>
+      failedBatchSet.add(fromPbPushFailedBatch(batch)))
+
+    failedBatchSet
+  }
 }

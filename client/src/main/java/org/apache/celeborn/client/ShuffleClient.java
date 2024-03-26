@@ -19,6 +19,7 @@ package org.apache.celeborn.client;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.LongAdder;
@@ -253,7 +254,7 @@ public abstract class ShuffleClient {
       ExceptionMaker exceptionMaker,
       ArrayList<PartitionLocation> locations,
       ArrayList<PbStreamHandler> streamHandlers,
-      Set<PushFailedBatch> pushFailedBatchSet,
+      Map<String, Set<PushFailedBatch>> failedBatchSetMap,
       int[] mapAttempts,
       MetricsCallback metricsCallback)
       throws IOException;
