@@ -17,6 +17,7 @@
 
 package org.apache.celeborn.service.deploy
 
+import java.io.IOException
 import java.net.BindException
 import java.nio.file.Files
 import java.util.concurrent.locks.{Lock, ReentrantLock}
@@ -70,16 +71,21 @@ trait MiniClusterFeature extends Logging {
         workers = w
         created = true
       } catch {
-        case e: BindException =>
-          logError(s"failed to setup mini cluster, retrying (retry count: $retryCount)", e)
+        case e: Throwable =>
           retryCount += 1
-          if (retryCount == 3) {
-            logError("failed to setup mini cluster, reached the max retry count", e)
-            throw e
-          }
+          handleRetry(e, retryCount)
       }
     }
     (master, workers)
+  }
+
+  private def handleRetry(e: Throwable, retryCount: Int): Unit = e match {
+    case _: BindException | _: IOException =>
+      logError(s"failed to setup mini cluster, retrying (retry count: $retryCount)", e)
+      if (retryCount == 3) {
+        logError("failed to setup mini cluster, reached the max retry count", e)
+        throw e
+      }
   }
 
   def createTmpDir(): String = {
