@@ -26,7 +26,6 @@ import scala.collection.mutable
 import scala.concurrent.duration._
 import scala.util.Try
 
-import org.apache.celeborn.common.CelebornConf.MASTER_INTERNAL_ENDPOINTS
 import org.apache.celeborn.common.identity.{DefaultIdentityProvider, IdentityProvider}
 import org.apache.celeborn.common.internal.Logging
 import org.apache.celeborn.common.internal.config._
@@ -879,6 +878,7 @@ class CelebornConf(loadDefaults: Boolean) extends Cloneable with Logging with Se
   def clientPushSendBufferPoolExpireTimeout: Long = get(CLIENT_PUSH_SENDBUFFERPOOL_EXPIRETIMEOUT)
   def clientPushSendBufferPoolExpireCheckInterval: Long =
     get(CLIENT_PUSH_SENDBUFFERPOOL_CHECKEXPIREINTERVAL)
+  def clientPushFailureTrackingEnabled: Boolean = get(CLIENT_DATA_PUSH_FAILURE_TRACKING_ENABLED)
 
   // //////////////////////////////////////////////////////
   //                   Client Shuffle                    //
@@ -4712,4 +4712,13 @@ object CelebornConf extends Logging {
       .version("0.5.0")
       .intConf
       .createWithDefault(10000)
+
+  val CLIENT_DATA_PUSH_FAILURE_TRACKING_ENABLED: ConfigEntry[Boolean] =
+    buildConf("celeborn.client.dataPushFailure.tracking.enabled")
+      .categories("client")
+      .version("0.5.0")
+      .doc("When client push data to worker failed, client will record the failed batch info. " +
+        "Feature used to optimize skew join by avoid data sorting")
+      .booleanConf
+      .createWithDefault(false)
 }

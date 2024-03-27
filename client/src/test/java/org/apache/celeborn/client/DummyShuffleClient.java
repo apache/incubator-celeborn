@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
@@ -43,6 +44,7 @@ import org.apache.celeborn.common.protocol.PbStreamHandler;
 import org.apache.celeborn.common.rpc.RpcEndpointRef;
 import org.apache.celeborn.common.util.ExceptionMaker;
 import org.apache.celeborn.common.util.JavaUtils;
+import org.apache.celeborn.common.write.PushFailedBatch;
 import org.apache.celeborn.common.write.PushState;
 
 public class DummyShuffleClient extends ShuffleClient {
@@ -135,6 +137,7 @@ public class DummyShuffleClient extends ShuffleClient {
       ExceptionMaker exceptionMaker,
       ArrayList<PartitionLocation> locations,
       ArrayList<PbStreamHandler> streamHandlers,
+      Map<String, Set<PushFailedBatch>> failedBatchSetMap,
       int[] mapAttempts,
       MetricsCallback metricsCallback)
       throws IOException {
