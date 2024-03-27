@@ -1596,7 +1596,9 @@ object CelebornConf extends Logging {
       .doc("Specifies size of the in memory bounded capacity.")
       .version("0.5.0")
       .intConf
-      .checkValue(v => v >= 0, "the capacity of inbox must be no less than 0, 0 means no limitation")
+      .checkValue(
+        v => v >= 0,
+        "the capacity of inbox must be no less than 0, 0 means no limitation")
       .createWithDefault(0)
 
   val RPC_ROLE_DISPATHER_THREADS: ConfigEntry[Int] =
