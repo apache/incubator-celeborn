@@ -21,10 +21,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.celeborn.common.identity.UserIdentifier;
-import org.apache.celeborn.common.meta.ApplicationMeta;
-import org.apache.celeborn.common.meta.DiskInfo;
-import org.apache.celeborn.common.meta.WorkerInfo;
-import org.apache.celeborn.common.meta.WorkerStatus;
+import org.apache.celeborn.common.meta.*;
 import org.apache.celeborn.common.quota.ResourceConsumption;
 
 public interface IMetadataHandler {
@@ -85,5 +82,9 @@ public interface IMetadataHandler {
 
   void handleUpdatePartitionSize();
 
+  /** handle application auth meta */
+  void handleApplicationAuthMeta(ApplicationAuthMeta applicationAuthMeta);
+
+  /** handle application general meta */
   void handleApplicationMeta(ApplicationMeta applicationMeta);
 }
