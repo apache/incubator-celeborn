@@ -138,11 +138,13 @@
           <groupId>org.apache.hadoop</groupId>
           <artifactId>hadoop-client-api</artifactId>
           <version>${hadoop.version}</version>
+          <scope>compile</scope>
         </dependency>
         <dependency>
           <groupId>org.apache.hadoop</groupId>
           <artifactId>hadoop-client-runtime</artifactId>
           <version>${hadoop.version}</version>
+          <scope>compile</scope>
         </dependency>
       </dependencies>
     </profile>
@@ -158,6 +160,7 @@
           <groupId>org.apache.hadoop</groupId>
           <artifactId>hadoop-client</artifactId>
           <version>${hadoop.version}</version>
+          <scope>compile</scope>
         </dependency>
       </dependencies>
     </profile>
