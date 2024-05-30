@@ -97,7 +97,25 @@ class ChangePartitionManager(
                               None
                             }
                           }
-                        }.filter(_.isDefined).map(_.get).toArray
+                        }.filter(_.isDefined).map(_.get).filter(request => {
+                          var shouldRevive = true
+                          getLatestPartition(
+                            request.shuffleId,
+                            request.partitionId,
+                            request.epoch)
+                            .foreach { latestLoc =>
+                              request.context.reply(
+                                latestLoc.getId,
+                                StatusCode.SUCCESS,
+                                Some(latestLoc),
+                                lifecycleManager.workerStatusTracker.workerAvailable(
+                                  request.oldPartition))
+                              shouldRevive = false
+                              // remove partitionId to avoid all other request be filtered
+                              requestSet.remove(request.partitionId)
+                            }
+                          shouldRevive
+                        }).toArray
                       }
                       if (distinctPartitions.nonEmpty) {
                         handleRequestPartitions(
@@ -183,8 +201,8 @@ class ChangePartitionManager(
         })
 
       if (newEntry) {
-        logTrace(s"[handleRequestPartitionLocation] For $shuffleId, request for same partition" +
-          s"$partitionId-$oldEpoch exists, register context.")
+        logTrace(s"[handleRequestPartitionLocation] For $shuffleId, register request for " +
+          s"partition $partitionId-$oldEpoch")
       } else {
         getLatestPartition(shuffleId, partitionId, oldEpoch).foreach { latestLoc =>
           context.reply(
@@ -196,6 +214,8 @@ class ChangePartitionManager(
             s" shuffleId: $shuffleId $latestLoc")
           return
         }
+        logTrace(s"[handleRequestPartitionLocation] For $shuffleId, request for same partition" +
+          s"$partitionId-$oldEpoch exists, register context.")
       }
       set.add(changePartition)
     }
