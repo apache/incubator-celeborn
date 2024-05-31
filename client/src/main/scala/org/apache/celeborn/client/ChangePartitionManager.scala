@@ -254,6 +254,10 @@ class ChangePartitionManager(
       shouldRevive
     })
 
+    if (changePartitionRequest.isEmpty)  {
+      logInfo(s"All change partition request has been reply")
+      return
+    }
     val changes = changePartitionRequest.map { change =>
       s"${change.shuffleId}-${change.partitionId}-${change.epoch}"
     }.mkString("[", ",", "]")
