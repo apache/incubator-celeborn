@@ -254,8 +254,8 @@ class ChangePartitionManager(
       shouldRevive
     })
 
-    if (changePartitionRequest.isEmpty)  {
-      logInfo(s"All change partition request has been reply")
+    if (changePartitionRequest.isEmpty) {
+      logInfo("All change partition request has been replied")
       return
     }
     val changes = changePartitionRequest.map { change =>
