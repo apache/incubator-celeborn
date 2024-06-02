@@ -163,6 +163,10 @@ public class StorageInfo implements Serializable {
         + finalResult
         + ", filePath="
         + filePath
+        + ", fileSize="
+        + fileSize
+        + ", chunkOffsets="
+        + chunkOffsets
         + '}';
   }
 
