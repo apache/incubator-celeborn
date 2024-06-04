@@ -39,6 +39,7 @@ import org.apache.celeborn.common.rpc.RpcCallContext
 import org.apache.celeborn.common.util.FunctionConverter._
 import org.apache.celeborn.common.util.JavaUtils
 import org.apache.celeborn.common.util.Utils
+import org.apache.celeborn.common.write.PushFailedBatch
 
 /**
  * This commit handler is for MapPartition ShuffleType, which means that a Map Partition contains all data produced
@@ -179,6 +180,7 @@ class MapPartitionCommitHandler(
       attemptId: Int,
       numMappers: Int,
       partitionId: Int,
+      pushFailedBatches: util.Map[String, util.Set[PushFailedBatch]],
       recordWorkerFailure: ShuffleFailedWorkers => Unit): (Boolean, Boolean) = {
     val inProcessingPartitionIds =
       inProcessMapPartitionEndIds.computeIfAbsent(

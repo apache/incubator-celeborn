@@ -313,7 +313,21 @@ private[deploy] class Controller(
                     // Only HDFS can be null, means that this partition location is deleted.
                     logDebug(s"Location $uniqueId is deleted.")
                   } else {
-                    committedStorageInfos.put(uniqueId, fileWriter.getStorageInfo)
+                    val storageInfo = fileWriter.getStorageInfo
+                    val fileInfo =
+                      if (null != fileWriter.getDiskFileInfo) {
+                        fileWriter.getDiskFileInfo
+                      } else {
+                        fileWriter.getMemoryFileInfo
+                      }
+                    val fileMeta = fileInfo.getFileMeta
+                    fileMeta match {
+                      case meta: ReduceFileMeta =>
+                        storageInfo.setFileSize(bytes)
+                        storageInfo.setChunkOffsets(meta.getChunkOffsets)
+                      case _ =>
+                    }
+                    committedStorageInfos.put(uniqueId, storageInfo)
                     if (fileWriter.getMapIdBitMap != null) {
                       committedMapIdBitMap.put(uniqueId, fileWriter.getMapIdBitMap)
                     }
