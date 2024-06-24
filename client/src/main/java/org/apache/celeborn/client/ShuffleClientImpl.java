@@ -135,6 +135,8 @@ public class ShuffleClientImpl extends ShuffleClient {
       };
 
   private final ReviveManager reviveManager;
+  private ConcurrentHashMap<Integer, Exception> registerShuffleExceptions =
+      new ConcurrentHashMap<>();
 
   protected static class ReduceFileGroups {
     public Map<Integer, Set<PartitionLocation>> partitionGroups;
@@ -540,7 +542,9 @@ public class ShuffleClientImpl extends ShuffleClient {
                     ClassTag$.MODULE$.apply(PbRegisterShuffleResponse.class)));
 
     if (partitionLocationMap == null) {
-      throw new CelebornIOException("Register shuffle failed for shuffle " + shuffleId);
+      throw new CelebornIOException(
+          "Register shuffle failed for shuffle " + shuffleId,
+          registerShuffleExceptions.get(shuffleId));
     }
 
     return partitionLocationMap.get(partitionId);
@@ -599,6 +603,7 @@ public class ShuffleClientImpl extends ShuffleClient {
       int numPartitions,
       Callable<PbRegisterShuffleResponse> callable) {
     int numRetries = registerShuffleMaxRetries;
+    Exception lastException = null;
     while (numRetries > 0) {
       try {
         PbRegisterShuffleResponse response = callable.call();
@@ -617,22 +622,26 @@ public class ShuffleClientImpl extends ShuffleClient {
           }
           return result;
         } else if (StatusCode.SLOT_NOT_AVAILABLE.equals(respStatus)) {
+          lastException = new CelebornIOException("Slot not available for shuffle " + shuffleId);
           logger.error(
               "LifecycleManager request slots return {}, retry again, remain retry times {}.",
               StatusCode.SLOT_NOT_AVAILABLE,
               numRetries - 1);
         } else if (StatusCode.RESERVE_SLOTS_FAILED.equals(respStatus)) {
+          lastException = new CelebornIOException("Reserve slots failed for shuffle " + shuffleId);
           logger.error(
               "LifecycleManager request slots return {}, retry again, remain retry times {}.",
               StatusCode.RESERVE_SLOTS_FAILED,
               numRetries - 1);
         } else {
+          lastException = new CelebornIOException("Request slots failed for shuffle " + shuffleId);
           logger.error(
               "LifecycleManager request slots return {}, retry again, remain retry times {}.",
               StatusCode.REQUEST_FAILED,
               numRetries - 1);
         }
       } catch (Exception e) {
+        lastException = e;
         logger.error(
             "Exception raised while registering shuffle {} with {} mapper and {} partitions.",
             shuffleId,
@@ -650,6 +659,9 @@ public class ShuffleClientImpl extends ShuffleClient {
       numRetries--;
     }
 
+    if (lastException != null) {
+      registerShuffleExceptions.put(shuffleId, lastException);
+    }
     return null;
   }
 
@@ -871,7 +883,9 @@ public class ShuffleClientImpl extends ShuffleClient {
         getPartitionLocation(shuffleId, numMappers, numPartitions);
 
     if (map == null) {
-      throw new CelebornIOException("Register shuffle failed for shuffle " + shuffleId + ".");
+      throw new CelebornIOException(
+          "Register shuffle failed for shuffle " + shuffleId + ".",
+          registerShuffleExceptions.get(shuffleId));
     }
 
     // get location
@@ -1584,6 +1598,7 @@ public class ShuffleClientImpl extends ShuffleClient {
     mapperEndMap.remove(shuffleId);
     stageEndShuffleSet.remove(shuffleId);
     splitting.remove(shuffleId);
+    registerShuffleExceptions.remove(shuffleId);
 
     logger.info("Unregistered shuffle {}.", shuffleId);
     return true;
