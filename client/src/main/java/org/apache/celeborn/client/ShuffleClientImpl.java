@@ -135,8 +135,6 @@ public class ShuffleClientImpl extends ShuffleClient {
       };
 
   private final ReviveManager reviveManager;
-  private ConcurrentHashMap<Integer, Exception> registerShuffleExceptions =
-      new ConcurrentHashMap<>();
 
   protected static class ReduceFileGroups {
     public Map<Integer, Set<PartitionLocation>> partitionGroups;
@@ -507,7 +505,7 @@ public class ShuffleClientImpl extends ShuffleClient {
   }
 
   private ConcurrentHashMap<Integer, PartitionLocation> registerShuffle(
-      int shuffleId, int numMappers, int numPartitions) {
+      int shuffleId, int numMappers, int numPartitions) throws CelebornIOException {
     return registerShuffleInternal(
         shuffleId,
         numMappers,
@@ -541,20 +539,29 @@ public class ShuffleClientImpl extends ShuffleClient {
                     conf.clientRpcRegisterShuffleAskTimeout(),
                     ClassTag$.MODULE$.apply(PbRegisterShuffleResponse.class)));
 
-    if (partitionLocationMap == null) {
-      throw new CelebornIOException(
-          "Register shuffle failed for shuffle " + shuffleId,
-          registerShuffleExceptions.get(shuffleId));
-    }
-
     return partitionLocationMap.get(partitionId);
   }
 
   @Override
   public ConcurrentHashMap<Integer, PartitionLocation> getPartitionLocation(
-      int shuffleId, int numMappers, int numPartitions) {
-    return reducePartitionMap.computeIfAbsent(
-        shuffleId, (id) -> registerShuffle(shuffleId, numMappers, numPartitions));
+      int shuffleId, int numMappers, int numPartitions) throws CelebornIOException {
+    try {
+      return reducePartitionMap.computeIfAbsent(
+          shuffleId,
+          (id) -> {
+            try {
+              return registerShuffle(shuffleId, numMappers, numPartitions);
+            } catch (CelebornIOException e) {
+              throw new RuntimeException(e);
+            }
+          });
+    } catch (RuntimeException e) {
+      if (e.getCause() instanceof CelebornIOException) {
+        throw (CelebornIOException) e.getCause();
+      } else {
+        throw e;
+      }
+    }
   }
 
   @Override
@@ -601,7 +608,8 @@ public class ShuffleClientImpl extends ShuffleClient {
       int shuffleId,
       int numMappers,
       int numPartitions,
-      Callable<PbRegisterShuffleResponse> callable) {
+      Callable<PbRegisterShuffleResponse> callable)
+      throws CelebornIOException {
     int numRetries = registerShuffleMaxRetries;
     Exception lastException = null;
     while (numRetries > 0) {
@@ -659,10 +667,8 @@ public class ShuffleClientImpl extends ShuffleClient {
       numRetries--;
     }
 
-    if (lastException != null) {
-      registerShuffleExceptions.put(shuffleId, lastException);
-    }
-    return null;
+    throw new CelebornIOException(
+        "Register shuffle failed for shuffle " + shuffleId + ".", lastException);
   }
 
   protected void limitMaxInFlight(String mapKey, PushState pushState, String hostAndPushPort)
@@ -881,12 +887,6 @@ public class ShuffleClientImpl extends ShuffleClient {
     // register shuffle if not registered
     final ConcurrentHashMap<Integer, PartitionLocation> map =
         getPartitionLocation(shuffleId, numMappers, numPartitions);
-
-    if (map == null) {
-      throw new CelebornIOException(
-          "Register shuffle failed for shuffle " + shuffleId + ".",
-          registerShuffleExceptions.get(shuffleId));
-    }
 
     // get location
     // If rerun or speculation task running after LifecycleManager call stageEnd,
@@ -1598,7 +1598,6 @@ public class ShuffleClientImpl extends ShuffleClient {
     mapperEndMap.remove(shuffleId);
     stageEndShuffleSet.remove(shuffleId);
     splitting.remove(shuffleId);
-    registerShuffleExceptions.remove(shuffleId);
 
     logger.info("Unregistered shuffle {}.", shuffleId);
     return true;
