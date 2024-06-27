@@ -243,7 +243,7 @@ public class ShuffleClientSuiteJ {
         .thenAnswer(
             t ->
                 RegisterShuffleResponse$.MODULE$.apply(
-                    StatusCode.SUCCESS, new PartitionLocation[] {primaryLocation}));
+                        statusCode, new PartitionLocation[] {primaryLocation}));
 
     shuffleClient.setupLifecycleManagerRef(endpointRef);
 
