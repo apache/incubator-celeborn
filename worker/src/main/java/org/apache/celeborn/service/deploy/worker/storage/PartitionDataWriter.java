@@ -99,7 +99,9 @@ public abstract class PartitionDataWriter implements DeviceObserver {
   protected PooledByteBufAllocator pooledByteBufAllocator;
   private final PartitionDataWriterContext writerContext;
   private final long localFlusherBufferSize;
-  private final long dfsFlusherBufferSize;
+  private final long hdfsFlusherBufferSize;
+
+  private final long s3FlusherBufferSize;
   private Exception exception = null;
   private boolean metricsCollectCriticalEnabled;
 
@@ -123,11 +125,8 @@ public abstract class PartitionDataWriter implements DeviceObserver {
     this.filename = writerContext.getPartitionLocation().getFileName();
     this.writerContext = writerContext;
     this.localFlusherBufferSize = conf.workerFlusherBufferSize();
-    if (conf.hasHDFSStorage()) {
-      this.dfsFlusherBufferSize = conf.workerHdfsFlusherBufferSize();
-    } else {
-      this.dfsFlusherBufferSize = conf.workerS3FlusherBufferSize();
-    }
+    this.hdfsFlusherBufferSize = conf.workerHdfsFlusherBufferSize();
+    this.s3FlusherBufferSize = conf.workerS3FlusherBufferSize();
     this.metricsCollectCriticalEnabled = conf.metricsCollectCriticalEnabled();
 
     Tuple4<MemoryFileInfo, Flusher, DiskFileInfo, File> createFileResult =
@@ -164,7 +163,11 @@ public abstract class PartitionDataWriter implements DeviceObserver {
       this.flusherBufferSize = localFlusherBufferSize;
       channel = FileChannelUtils.createWritableFileChannel(this.diskFileInfo.getFilePath());
     } else {
-      this.flusherBufferSize = dfsFlusherBufferSize;
+       if (diskFileInfo.isS3()){
+         this.flusherBufferSize = s3FlusherBufferSize;
+      } else {
+         this.flusherBufferSize = hdfsFlusherBufferSize;
+      }
       // We open the stream and close immediately because DFS output stream will
       // create a DataStreamer that is a thread.
       // If we reuse DFS output stream, we will exhaust the memory soon.
@@ -373,7 +376,7 @@ public abstract class PartitionDataWriter implements DeviceObserver {
         if (deleted) {
           return null;
         } else if (diskFileInfo.isS3()) {
-          return new StorageInfo(StorageInfo.Type.OSS, true, diskFileInfo.getFilePath());
+          return new StorageInfo(StorageInfo.Type.S3, true, diskFileInfo.getFilePath());
         } else {
           return new StorageInfo(StorageInfo.Type.HDFS, true, diskFileInfo.getFilePath());
         }
@@ -437,7 +440,7 @@ public abstract class PartitionDataWriter implements DeviceObserver {
       finalClose.run();
 
       // unregister from DeviceMonitor
-      if (diskFileInfo != null && !diskFileInfo.isDFS()) {
+      if (diskFileInfo != null && !this.diskFileInfo.isDFS()) {
         logger.debug("file info {} unregister from device monitor", diskFileInfo);
         deviceMonitor.unregisterFileWriter(this);
       }
