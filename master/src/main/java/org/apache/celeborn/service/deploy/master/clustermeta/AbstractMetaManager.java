@@ -44,7 +44,7 @@ import org.apache.celeborn.common.identity.UserIdentifier;
 import org.apache.celeborn.common.meta.AppDiskUsageMetric;
 import org.apache.celeborn.common.meta.AppDiskUsageSnapShot;
 import org.apache.celeborn.common.meta.ApplicationMeta;
-import org.apache.celeborn.common.meta.DiskInfo;
+import org.apache.celeborn.common.meta.DiskInfoBase;
 import org.apache.celeborn.common.meta.DiskStatus;
 import org.apache.celeborn.common.meta.WorkerEventInfo;
 import org.apache.celeborn.common.meta.WorkerInfo;
@@ -175,7 +175,7 @@ public abstract class AbstractMetaManager implements IMetadataHandler {
       int pushPort,
       int fetchPort,
       int replicatePort,
-      Map<String, DiskInfo> disks,
+      Map<String, DiskInfoBase> disks,
       Map<UserIdentifier, ResourceConsumption> userResourceConsumption,
       Map<String, Long> estimatedAppDiskUsage,
       long time,
@@ -212,10 +212,14 @@ public abstract class AbstractMetaManager implements IMetadataHandler {
     long healthyDiskNum =
         disks.values().stream().filter(s -> s.status().equals(DiskStatus.HEALTHY)).count();
     if (!excludedWorkers.contains(worker)
-        && (((disks.isEmpty() || healthyDiskNum <= 0) && !conf.hasHDFSStorage()) || highWorkload)) {
+        && (((disks.isEmpty() || healthyDiskNum <= 0)
+                && (!conf.hasHDFSStorage())
+                && (!conf.hasS3Storage()))
+            || highWorkload)) {
       LOG.debug("Worker: {} num total slots is 0, add to excluded list", worker);
       excludedWorkers.add(worker);
-    } else if ((availableSlots.get() > 0 || conf.hasHDFSStorage()) && !highWorkload) {
+    } else if ((availableSlots.get() > 0 || conf.hasHDFSStorage() || conf.hasS3Storage())
+        && !highWorkload) {
       // only unblack if numSlots larger than 0
       excludedWorkers.remove(worker);
     }
@@ -229,7 +233,7 @@ public abstract class AbstractMetaManager implements IMetadataHandler {
       int replicatePort,
       int internalPort,
       String networkLocation,
-      Map<String, DiskInfo> disks,
+      Map<String, DiskInfoBase> disks,
       Map<UserIdentifier, ResourceConsumption> userResourceConsumption) {
     WorkerInfo workerInfo =
         new WorkerInfo(
